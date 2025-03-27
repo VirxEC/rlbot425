@@ -1,9 +1,12 @@
+import json
 import math
+from threading import Thread
 
 from rlbot import flat
 from rlbot.managers import Bot
 
 from rlbot425.agents.base_agent import BaseAgent
+from rlbot425.matchcomms.client import MatchcommsClient
 from rlbot425.matchconfig.match_config import MatchConfig
 from rlbot425.messages.flat import QUICK_CHATS
 from rlbot425.messages.flat.QuickChatSelection import QuickChatSelection
@@ -164,15 +167,31 @@ class BotRunner(Bot):
     child_class: type[BaseAgent]
     agent_instance: BaseAgent | None = None
 
+    def send_from_queue(self):
+        assert self.agent_instance is not None
+        while 1:
+            msg = self.agent_instance.matchcomms.outgoing_broadcast.get()
+            if msg is None:
+                break
+
+            self.send_match_comm(
+                bytes(json.dumps(msg), "utf-8"),
+                None,
+                False,
+            )
+
     def __init__(
         self, child_class: type[BaseAgent], default_agent_id: str | None = None
     ):
         super().__init__(default_agent_id)
         self.child_class = child_class
+        self.matchcomms_thread = Thread(target=self.send_from_queue, daemon=True)
 
     def initialize(self):
         self.agent_instance = self.child_class(self.name, self.team, self.index)
         self.agent_instance._field_info = v524_field_info(self.field_info)
+
+        self.matchcomms_thread.start()
 
         self.agent_instance.renderer = RenderingManager(self.renderer)
         self.agent_instance.renderer.set_bot_index_and_team(self.index, self.team)
@@ -183,6 +202,21 @@ class BotRunner(Bot):
         self.agent_instance.init_match_config(MatchConfig(self.match_config))
         self.agent_instance.initialize_agent()
 
+    @staticmethod
+    def handle_quick_chat(
+        agent_instance: BaseAgent,
+        index: int,
+        team: int,
+        display: str,
+    ):
+        quick_chat_idx = QUICK_CHATS.index(display)
+        if quick_chat_idx == -1:
+            return
+
+        agent_instance.handle_quick_chat(
+            index, team, QuickChatSelection(quick_chat_idx)
+        )
+
     def handle_match_comm(
         self,
         index: int,
@@ -192,16 +226,27 @@ class BotRunner(Bot):
         team_only: bool,
     ):
         assert self.agent_instance is not None
-        if display is None:
+        if display is not None and BotRunner.handle_quick_chat(
+            self.agent_instance,
+            index,
+            team,
+            display,
+        ):
+            # the message was a quick chat
             return
 
-        quick_chat_idx = QUICK_CHATS.index(display)
-        if quick_chat_idx == -1:
+        # custom message
+        # try to decode it assuming it's JSON
+        try:
+            msg_str = content.decode("utf-8")
+            msg = json.loads(msg_str)
+        except UnicodeDecodeError:
+            return
+        except json.JSONDecodeError:
             return
 
-        self.agent_instance.handle_quick_chat(
-            index, team, QuickChatSelection(quick_chat_idx)
-        )
+        # queue the incoming message to be handled by the agent
+        self.agent_instance.matchcomms.incoming_broadcast.put(msg)
 
     def send_quick_chat(self, team_only: bool, quick_chat: QuickChatSelection):
         self.send_match_comm(

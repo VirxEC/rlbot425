@@ -2,6 +2,7 @@ from typing import TypeAlias
 
 from rlbot import flat
 
+from rlbot425.matchcomms.client import MatchcommsClient
 from rlbot425.matchconfig.match_config import MatchConfig
 from rlbot425.messages.flat.QuickChatSelection import QuickChatSelection
 from rlbot425.utils.game_state_util import GameState
@@ -18,6 +19,7 @@ class BaseAgent:
     index: int
 
     renderer: RenderingManager
+    matchcomms: MatchcommsClient = MatchcommsClient()
 
     _field_info: FieldInfoPacket = FieldInfoPacket([], 0, [], 0)
     _ball_prediction: BallPrediction = BallPrediction([], 0)
