@@ -4,8 +4,10 @@ from rlbot import flat
 from rlbot.managers import Bot
 
 from rlbot425.agents.base_agent import BaseAgent
+from rlbot425.matchconfig.match_config import MatchConfig
 from rlbot425.messages.flat import QUICK_CHATS
 from rlbot425.messages.flat.QuickChatSelection import QuickChatSelection
+from rlbot425.utils.game_state_util import GameState
 from rlbot425.utils.rendering.rendering_manager import RenderingManager
 from rlbot425.utils.structures.ball_prediction_struct import BallPrediction
 from rlbot425.utils.structures.game_data_struct import (
@@ -27,7 +29,7 @@ def v524_player_info(player: flat.PlayerInfo) -> PlayerInfo:
     return PlayerInfo(
         player.physics,
         player.score_info,
-        player.demolished_timeout == -1,
+        player.demolished_timeout >= 0,
         player.air_state == flat.AirState.OnGround,
         player.is_supersonic,
         player.is_bot,
@@ -127,7 +129,7 @@ def v524_game_info(match_info: flat.MatchInfo) -> GameInfo:
         match_info.game_time_remaining,
         match_info.is_overtime,
         match_info.is_unlimited_time,
-        match_info.match_phase == flat.MatchPhase.Active,
+        match_info.match_phase in {flat.MatchPhase.Kickoff, flat.MatchPhase.Active},
         match_info.match_phase == flat.MatchPhase.Kickoff,
         match_info.match_phase == flat.MatchPhase.Ended,
         match_info.world_gravity_z,
@@ -170,11 +172,15 @@ class BotRunner(Bot):
 
     def initialize(self):
         self.agent_instance = self.child_class(self.name, self.team, self.index)
-        self.agent_instance.renderer = RenderingManager(self.renderer)
-        self.agent_instance.renderer.set_bot_index_and_team(self.index, self.team)
-        self.agent_instance.send_quick_chat = self.send_quick_chat
         self.agent_instance._field_info = v524_field_info(self.field_info)
 
+        self.agent_instance.renderer = RenderingManager(self.renderer)
+        self.agent_instance.renderer.set_bot_index_and_team(self.index, self.team)
+
+        self.agent_instance.send_quick_chat = self.send_quick_chat
+        self.agent_instance.set_game_state = self.set_v4_game_state
+
+        self.agent_instance.init_match_config(MatchConfig(self.match_config))
         self.agent_instance.initialize_agent()
 
     def handle_match_comm(
@@ -204,6 +210,28 @@ class BotRunner(Bot):
             team_only,
         )
 
+    def set_v4_game_state(self, game_state: GameState):
+        balls: dict[int, flat.DesiredBallState] = {}
+        if game_state.ball:
+            balls[0] = game_state.ball
+
+        cars: dict[int, flat.DesiredCarState] = {}
+        if game_state.cars:
+            for key, car in game_state.cars.items():
+                cars[key] = flat.DesiredCarState(
+                    car.physics,
+                    car.boost_amount,
+                )
+
+        match_info = None
+        if game_state.game_info:
+            match_info = flat.DesiredMatchInfo(
+                game_state.game_info.world_gravity_z,
+                game_state.game_info.game_speed,
+            )
+
+        self.set_game_state(balls, cars, match_info, game_state.console_commands)
+
     def get_output(self, packet: flat.GamePacket) -> flat.ControllerState:
         assert self.agent_instance is not None
 
@@ -215,3 +243,7 @@ class BotRunner(Bot):
         self.agent_instance.renderer.end_rendering()
 
         return controller
+
+    def retire(self):
+        assert self.agent_instance is not None
+        self.agent_instance.retire()

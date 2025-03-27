@@ -2,7 +2,9 @@ from typing import TypeAlias
 
 from rlbot import flat
 
+from rlbot425.matchconfig.match_config import MatchConfig
 from rlbot425.messages.flat.QuickChatSelection import QuickChatSelection
+from rlbot425.utils.game_state_util import GameState
 from rlbot425.utils.rendering.rendering_manager import RenderingManager
 from rlbot425.utils.structures.ball_prediction_struct import BallPrediction
 from rlbot425.utils.structures.game_data_struct import FieldInfoPacket, GameTickPacket
@@ -32,6 +34,12 @@ class BaseAgent:
         """
         pass
 
+    def init_match_config(self, match_config: MatchConfig):
+        """
+        Override this method if you would like to be informed of what config was used to start the match.
+        Useful for knowing what map you're on, mutators, etc.
+        """
+
     def get_field_info(self) -> FieldInfoPacket:
         """
         Gets the information about the field.
@@ -42,6 +50,9 @@ class BaseAgent:
     def get_ball_prediction_struct(self) -> BallPrediction:
         """Fetches a prediction of where the ball will go during the next few seconds."""
         return self._ball_prediction
+
+    def set_game_state(self, game_state: GameState):
+        """CHEAT: Change the rocket league game to the given game_state"""
 
     def handle_quick_chat(self, index: int, team: int, quick_chat: QuickChatSelection):
         """
@@ -71,3 +82,8 @@ class BaseAgent:
         :return: [throttle, steer, pitch, yaw, roll, jump, boost, handbrake]
         """
         raise NotImplementedError("get_output() must be implemented in the subclass")
+
+    def retire(self):
+        """
+        Called after the game ends
+        """
