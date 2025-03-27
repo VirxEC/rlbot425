@@ -1,0 +1,217 @@
+import math
+
+from rlbot import flat
+from rlbot.managers import Bot
+
+from rlbot425.agents.base_agent import BaseAgent
+from rlbot425.messages.flat import QUICK_CHATS
+from rlbot425.messages.flat.QuickChatSelection import QuickChatSelection
+from rlbot425.utils.rendering.rendering_manager import RenderingManager
+from rlbot425.utils.structures.ball_prediction_struct import BallPrediction
+from rlbot425.utils.structures.game_data_struct import (
+    BallInfo,
+    BoxShape,
+    CollisionShape,
+    CylinderShape,
+    FieldInfoPacket,
+    GameInfo,
+    GameTickPacket,
+    PlayerInfo,
+    ShapeType,
+    SphereShape,
+    Touch,
+)
+
+
+def v524_player_info(player: flat.PlayerInfo) -> PlayerInfo:
+    return PlayerInfo(
+        player.physics,
+        player.score_info,
+        player.demolished_timeout == -1,
+        player.air_state == flat.AirState.OnGround,
+        player.is_supersonic,
+        player.is_bot,
+        player.has_jumped,
+        player.has_double_jumped,
+        player.name,
+        player.team,
+        player.boost,
+        player.hitbox,
+        player.hitbox_offset,
+        player.spawn_id,
+    )
+
+
+def v524_touch(idx: int, player: flat.PlayerInfo) -> Touch:
+    assert player.latest_touch is not None
+
+    return Touch(
+        player.name,
+        player.latest_touch.game_seconds,
+        player.latest_touch.location,
+        player.latest_touch.normal,
+        player.team,
+        idx,
+    )
+
+
+def v524_shape(shape: flat.CollisionShape) -> CollisionShape:
+    match shape.item:
+        case flat.SphereShape():
+            return CollisionShape(
+                ShapeType.sphere,
+                BoxShape(0, 0, 0),
+                shape.item,
+                CylinderShape(0, 0),
+            )
+        case flat.BoxShape():
+            return CollisionShape(
+                ShapeType.box,
+                shape.item,
+                SphereShape(0),
+                CylinderShape(0, 0),
+            )
+        case flat.CylinderShape():
+            return CollisionShape(
+                ShapeType.cylinder,
+                BoxShape(0, 0, 0),
+                SphereShape(0),
+                shape.item,
+            )
+        case _:
+            return CollisionShape(
+                ShapeType.sphere,
+                BoxShape(0, 0, 0),
+                SphereShape(93 * 2),
+                CylinderShape(0, 0),
+            )
+
+
+def get_latest_touch(packet: flat.GamePacket) -> Touch:
+    s = -math.inf
+    touched_car = None
+    for i, car in enumerate(packet.players):
+        if not car.latest_touch or car.latest_touch.ball_index != 0:
+            continue
+
+        if touched_car is None or car.latest_touch.game_seconds > s:
+            s = car.latest_touch.game_seconds
+            touched_car = i, car
+
+    return (
+        Touch("", 0, flat.Vector3(), flat.Vector3(), 0, 0)
+        if touched_car is None
+        else v524_touch(touched_car[0], touched_car[1])
+    )
+
+
+def v524_ball_info(packet: flat.GamePacket, ball: flat.BallInfo) -> BallInfo:
+    return BallInfo(
+        ball.physics,
+        get_latest_touch(packet),
+        v524_shape(ball.shape),
+    )
+
+
+def v524_balls(packet: flat.GamePacket) -> BallInfo:
+    return (
+        v524_ball_info(packet, flat.BallInfo())
+        if len(packet.balls) == 0
+        else v524_ball_info(packet, packet.balls[0])
+    )
+
+
+def v524_game_info(match_info: flat.MatchInfo) -> GameInfo:
+    return GameInfo(
+        match_info.seconds_elapsed,
+        match_info.game_time_remaining,
+        match_info.is_overtime,
+        match_info.is_unlimited_time,
+        match_info.match_phase == flat.MatchPhase.Active,
+        match_info.match_phase == flat.MatchPhase.Kickoff,
+        match_info.match_phase == flat.MatchPhase.Ended,
+        match_info.world_gravity_z,
+        match_info.game_speed,
+        match_info.frame_num,
+    )
+
+
+def v524_packet(packet: flat.GamePacket) -> GameTickPacket:
+    return GameTickPacket(
+        [v524_player_info(player) for player in packet.players],
+        len(packet.players),
+        packet.boost_pads,
+        len(packet.boost_pads),
+        v524_balls(packet),
+        v524_game_info(packet.match_info),
+        packet.teams,
+        len(packet.teams),
+    )
+
+
+def v524_field_info(field_info: flat.FieldInfo) -> FieldInfoPacket:
+    return FieldInfoPacket(
+        field_info.boost_pads,
+        len(field_info.boost_pads),
+        field_info.goals,
+        len(field_info.goals),
+    )
+
+
+class BotRunner(Bot):
+    child_class: type[BaseAgent]
+    agent_instance: BaseAgent | None = None
+
+    def __init__(
+        self, child_class: type[BaseAgent], default_agent_id: str | None = None
+    ):
+        super().__init__(default_agent_id)
+        self.child_class = child_class
+
+    def initialize(self):
+        self.agent_instance = self.child_class(self.name, self.team, self.index)
+        self.agent_instance.renderer = RenderingManager(self.renderer)
+        self.agent_instance.renderer.set_bot_index_and_team(self.index, self.team)
+        self.agent_instance.send_quick_chat = self.send_quick_chat
+        self.agent_instance._field_info = v524_field_info(self.field_info)
+
+        self.agent_instance.initialize_agent()
+
+    def handle_match_comm(
+        self,
+        index: int,
+        team: int,
+        content: bytes,
+        display: str | None,
+        team_only: bool,
+    ):
+        assert self.agent_instance is not None
+        if display is None:
+            return
+
+        quick_chat_idx = QUICK_CHATS.index(display)
+        if quick_chat_idx == -1:
+            return
+
+        self.agent_instance.handle_quick_chat(
+            index, team, QuickChatSelection(quick_chat_idx)
+        )
+
+    def send_quick_chat(self, team_only: bool, quick_chat: QuickChatSelection):
+        self.send_match_comm(
+            bytes(),
+            QUICK_CHATS[int(quick_chat)],
+            team_only,
+        )
+
+    def get_output(self, packet: flat.GamePacket) -> flat.ControllerState:
+        assert self.agent_instance is not None
+
+        slices = self.ball_prediction.slices[::2]
+        self.agent_instance._ball_prediction = BallPrediction(slices, len(slices))
+
+        self.agent_instance.renderer.begin_rendering()
+        controller = self.agent_instance.get_output(v524_packet(packet))
+        self.agent_instance.renderer.end_rendering()
+
+        return controller
