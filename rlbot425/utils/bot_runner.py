@@ -6,7 +6,6 @@ from rlbot import flat
 from rlbot.managers import Bot
 
 from rlbot425.agents.base_agent import BaseAgent
-from rlbot425.matchcomms.client import MatchcommsClient
 from rlbot425.matchconfig.match_config import MatchConfig
 from rlbot425.messages.flat import QUICK_CHATS
 from rlbot425.messages.flat.QuickChatSelection import QuickChatSelection
@@ -37,7 +36,7 @@ def v524_player_info(player: flat.PlayerInfo) -> PlayerInfo:
         player.is_supersonic,
         player.is_bot,
         player.has_jumped,
-        player.has_double_jumped,
+        player.has_double_jumped or player.has_dodged,
         player.name,
         player.team,
         player.boost,
