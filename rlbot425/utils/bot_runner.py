@@ -39,10 +39,10 @@ def v524_player_info(player: flat.PlayerInfo) -> PlayerInfo:
         player.has_double_jumped or player.has_dodged,
         player.name,
         player.team,
-        player.boost,
+        round(player.boost),
         player.hitbox,
         player.hitbox_offset,
-        player.spawn_id,
+        player.player_id,
     )
 
 
