@@ -29,6 +29,23 @@ class MutatorConfig:
     Knows how to translate itself into the MutatorSettings ctypes class.
     """
 
+    match_length: str
+    max_score: str
+    overtime: str
+    series_length: str
+    game_speed: str
+    ball_max_speed: str
+    ball_type: str
+    ball_weight: str
+    ball_size: str
+    ball_bounciness: str
+    boost_amount: str
+    rumble: str
+    boost_strength: str
+    gravity: str
+    demolish: str
+    respawn_time: str
+
     def __init__(self, mutators: flat.MutatorSettings):
         self.match_length = match_length_types[int(mutators.match_length)]
         self.max_score = max_score_types[int(mutators.max_score)]
@@ -55,16 +72,20 @@ class MatchConfig:
     Represents configuration for an entire match. Includes player config and mutators.
     """
 
+    game_mode: str
+    game_map: str
+    mutators: MutatorConfig
+
     def __init__(self, match_config: flat.MatchConfiguration):
         self.game_mode = game_mode_types[int(match_config.game_mode)]
 
-        self.game_map: str = ""
+        self.game_map = ""
         for key, value in game_map_dict.items():
             if value == match_config.game_map_upk:
                 self.game_map = key
                 break
 
-        self.mutators: MutatorConfig = (
+        self.mutators = (
             MutatorConfig(flat.MutatorSettings())
             if match_config.mutators is None
             else MutatorConfig(match_config.mutators)

@@ -10,10 +10,14 @@ base_agent_file_end = [
 
 
 class PyConv:
-    key_replacements = {
+    key_replacements: dict[str, str] = {
         "import rlbot": "import rlbot425",
         "from rlbot": "from rlbot425",
     }
+    
+    base_dir: Path
+    py_file: Path
+    files: list[Path]
 
     def __init__(self, py_file: Path):
         self.base_dir = py_file.parent
@@ -48,7 +52,7 @@ class PyConv:
 
         with open(new_requirements, "w") as f:
             for line in lines:
-                f.write(line)
+                _ = f.write(line)
 
     def _convert_file(self, file: Path) -> list[str]:
         with open(file, "r") as f:

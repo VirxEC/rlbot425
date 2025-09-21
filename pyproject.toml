@@ -11,3 +11,8 @@ dependencies = [
 ]
 readme = "README.md"
 version = "0.1.0"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.13.0",
+]

@@ -59,19 +59,21 @@ def v524_touch(idx: int, player: flat.PlayerInfo) -> Touch:
     )
 
 
-def v524_shape(shape: flat.CollisionShape) -> CollisionShape:
-    match shape.item:
+def v524_shape(
+    shape: flat.BoxShape | flat.SphereShape | flat.CylinderShape,
+) -> CollisionShape:
+    match shape:
         case flat.SphereShape():
             return CollisionShape(
                 ShapeType.sphere,
                 BoxShape(0, 0, 0),
-                shape.item,
+                shape,
                 CylinderShape(0, 0),
             )
         case flat.BoxShape():
             return CollisionShape(
                 ShapeType.box,
-                shape.item,
+                shape,
                 SphereShape(0),
                 CylinderShape(0, 0),
             )
@@ -80,14 +82,7 @@ def v524_shape(shape: flat.CollisionShape) -> CollisionShape:
                 ShapeType.cylinder,
                 BoxShape(0, 0, 0),
                 SphereShape(0),
-                shape.item,
-            )
-        case _:
-            return CollisionShape(
-                ShapeType.sphere,
-                BoxShape(0, 0, 0),
-                SphereShape(93 * 2),
-                CylinderShape(0, 0),
+                shape,
             )
 
 

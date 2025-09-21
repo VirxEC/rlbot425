@@ -9,7 +9,6 @@ from util.vec import Vec3
 
 
 class MyBot(BaseAgent):
-
     def __init__(self, name, team, index):
         super().__init__(name, team, index)
         self.active_sequence: Sequence = None

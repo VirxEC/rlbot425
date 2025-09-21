@@ -10,13 +10,13 @@ DEFAULT_GROUP_ID = "default"
 
 
 class RenderingManager:
-    bot_index = 0
-    bot_team = 0
+    bot_index: int = 0
+    bot_team: int = 0
 
     def __init__(self, renderer: Renderer):
-        self._renderer = renderer
+        self._renderer: Renderer = renderer
 
-    def set_bot_index_and_team(self, bot_index=0, bot_team=0):
+    def set_bot_index_and_team(self, bot_index: int = 0, bot_team: int = 0):
         self.bot_index = bot_index
         self.bot_team = bot_team
 
@@ -76,8 +76,20 @@ class RenderingManager:
         color: Color,
         centered: bool = False,
     ):
+        if centered:
+            halign = flat.TextHAlign.Center
+            valign = flat.TextVAlign.Center
+        else:
+            halign = flat.TextHAlign.Left
+            valign = flat.TextVAlign.Top
+
         self._renderer.draw_rect_3d(
-            self.__create_vector(vec), width / 1920, height / 1080, color
+            self.__create_vector(vec),
+            width / 1920,
+            height / 1080,
+            color,
+            halign,
+            valign,
         )
         return self
 
@@ -99,7 +111,7 @@ class RenderingManager:
         self._renderer.draw_string_3d(text, self.__create_vector(vec), scale_x, color)
         return self
 
-    def create_color(self, alpha, red, green, blue):
+    def create_color(self, alpha: int, red: int, green: int, blue: int) -> Color:
         return Color(red, green, blue, alpha)
 
     def black(self):

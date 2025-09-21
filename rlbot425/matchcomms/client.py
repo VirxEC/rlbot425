@@ -2,5 +2,5 @@ from queue import Queue
 
 
 class MatchcommsClient:
-    incoming_broadcast = Queue()
-    outgoing_broadcast = Queue()
+    incoming_broadcast: Queue[str | None] = Queue()
+    outgoing_broadcast: Queue[str | None] = Queue()

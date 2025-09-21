@@ -9,7 +9,7 @@ from rlbot425.convert.pyconv import PyConv
 
 def cfg_to_dict(path: Path) -> dict[str, dict[str, str]]:
     config = RawConfigParser()
-    config.read(path)
+    _ = config.read(path)
 
     dict_config: dict[str, dict[str, str]] = {}
     for section in config.sections():
@@ -59,6 +59,9 @@ class Loadout:
 
 
 class Bot:
+    parent_path: Path
+    cfg_dict: dict[str, dict[str, Any]]
+
     def __init__(self, path: Path):
         self.parent_path = path.parent
         self.cfg_dict = cfg_to_dict(path)
